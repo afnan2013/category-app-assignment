@@ -50,24 +50,37 @@ const getAllCategories = asyncHandler(async (req, res) => {
 // @route GET /api/categories/:id
 // @access Public
 const getCategoryById = asyncHandler(async (req, res) => {
-  // if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-  const product = await Product.findById(req.params.id);
+  if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    const category = await Category.findById(req.params.id);
 
-  if (product) {
-    res.json(product);
+    if (category) {
+      res.json(category);
+    } else {
+      res.status(404);
+      throw new Error('Category not found');
+    }
   } else {
-    res.status(404);
-    throw new Error('Product not found');
+    res.status(400).json({ message: 'Invalid Category Request' });
   }
-  // } else {
-  //   res.status(404).json({ message: 'Invalid Product Request' });
-  // }
 });
 
 // @desc Add Single Category
 // @route POST /api/categories/
 // @access Private
 const addCategory = asyncHandler(async (req, res) => {
+  if (req.body.parentId) {
+    let validParent = req.body.parentId.match(/^[0-9a-fA-F]{24}$/);
+    if (validParent) {
+      const parent = await Category.findById(req.body.parentId);
+      if (!parent) {
+        res.status(400);
+        throw new Error('ParentId Not Found');
+      }
+    } else {
+      res.status(400);
+      throw new Error('Invalid ParentId Request');
+    }
+  }
   if (req.body.name) {
     const slug = slugify(req.body.slug ? req.body.slug : req.body.name);
     const category = await Category.findOne({ slug });
@@ -118,4 +131,70 @@ const deleteCategories = asyncHandler(async (req, res) => {
   }
 });
 
-export { getAllCategories, getCategoryById, addCategory, deleteCategories };
+// @desc Update Single Category
+// @route PUT /api/categories/:id
+// @access Private
+const updateCategory = asyncHandler(async (req, res) => {
+  if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+    if (req.body.parentId) {
+      let validParent = req.body.parentId.match(/^[0-9a-fA-F]{24}$/);
+      if (validParent) {
+        const parent = await Category.findById(req.body.parentId);
+        if (!parent) {
+          res.status(400);
+          throw new Error('ParentId Not Found');
+        }
+      } else {
+        res.status(400);
+        throw new Error('Invalid ParentId Request');
+      }
+    }
+
+    const category = await Category.findById(req.params.id);
+
+    const slug =
+      req.body.slug || req.body.name
+        ? slugify(req.body.slug || req.body.name)
+        : undefined;
+    if (slug) {
+      const categoryBySlug = await Category.findOne({ slug });
+
+      if (categoryBySlug && category.slug !== slug) {
+        res.status(400);
+        throw new Error(
+          'Slug Already Taken. Please Set a Different Category Name or Slug'
+        );
+      }
+    }
+    // console.log(category);
+    if (category) {
+      category.name = req.body.name || category.name;
+      category.slug = slug || category.slug;
+      category.parentId = req.body.parentId || category.parentId;
+
+      const updatedCategory = await category.save();
+      // console.log(updatedCategory);
+      res.json({
+        message: 'Updated Successfully',
+        _id: category._id,
+        name: category.name,
+        slug: category.slug,
+        parentId: category.parentId || null,
+      });
+    } else {
+      res.status(400);
+      throw new Error('No Category Found');
+    }
+  } else {
+    res.status(400);
+    throw new Error('Invalid Request');
+  }
+});
+
+export {
+  getAllCategories,
+  getCategoryById,
+  addCategory,
+  deleteCategories,
+  updateCategory,
+};
