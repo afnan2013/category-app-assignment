@@ -15,22 +15,22 @@ const formatCategories = (categories, parentId = null) => {
       children: formatCategories(categories, cat._id),
     });
   }
-  return categoryList;
+  return [...categoryList];
 };
 
-const getNestedDeleteCategories = (categories, parentId)=> {
-  const categoryList = [];
+const getNestedCategories = (categories, parentId, categoryList) => {
   let eachlevelCategories = categories.filter(
     (category) => category.parentId == parentId
   );
 
-  for (let cat of eachlevelCategories){
-    console.log(cat.slug)
-    getNestedDeleteCategories(categories, cat._id);
+  for (let cat of eachlevelCategories) {
+    // console.log(cat.slug);
     categoryList.push(cat._id);
+    getNestedCategories(categories, cat._id, categoryList);
   }
-  return categoryList;
-}
+
+  return [...categoryList];
+};
 
 // @desc Fetch All Categories
 // @route GET /api/categories
@@ -97,21 +97,25 @@ const addCategory = asyncHandler(async (req, res) => {
   }
 });
 
-
 // @desc Delete Single Category and Cascade Nested Categories
 // @route DELETE /api/categories/:id
 // @access Private
-const deleteCategories = asyncHandler(async (req, res)=> {
-  if(req.params.id){
+const deleteCategories = asyncHandler(async (req, res) => {
+  if (req.params.id) {
     const categories = await Category.find({});
-    const categoryList = getNestedDeleteCategories(categories, req.params.id);
+    let categoryList = [req.params.id];
+    getNestedCategories(categories, req.params.id, categoryList);
     console.log(categoryList);
-    res.json(categoryList);
-  }else {
+
+    await Category.deleteMany({ _id: { $in: categoryList } });
+    res.json({
+      message: 'Category Deleted Successfully',
+      categoryList,
+    });
+  } else {
     res.status(400);
     throw new Error('Invalid Request');
   }
 });
-
 
 export { getAllCategories, getCategoryById, addCategory, deleteCategories };
