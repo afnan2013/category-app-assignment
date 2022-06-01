@@ -110,7 +110,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
-  const userList = await User.find({});
+  const userList = await User.find({}).select('-password');
 
   if (userList) {
     res.json(userList);
@@ -120,10 +120,28 @@ const getAllUsers = asyncHandler(async (req, res) => {
   }
 });
 
+const deleteUser = asyncHandler(async (req, res)=> {
+  const user = await User.findById(req.user._id);
+  //   console.log(user);
+  if (user) {
+
+    await User.deleteOne({_id: user._id});
+
+    res.json({
+      message: "User Deleted Successfully",
+      user
+    });
+  } else {
+    res.status(401);
+    throw new Error('Not Authorised, Invalid Token.');
+  }
+});
+
 export {
   userAuth,
   getUserProfile,
   registerUser,
   updateUserProfile,
   getAllUsers,
+  deleteUser
 };

@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Category from '../models/categoryModel.js';
 import slugify from 'slugify';
+import { validateObjectId } from '../utils/commonUtils.js';
 
 const formatCategories = (categories, parentId = null) => {
   const categoryList = [];
@@ -32,12 +33,40 @@ const getNestedCategories = (categories, parentId, categoryList) => {
   return [...categoryList];
 };
 
+const searchCategories = (categories, allCategories) => {
+  let categoryList = [];
+  
+  for (let cat of categories) {
+    categoryList.push({
+      _id: cat._id,
+      name: cat.name,
+      slug: cat.slug,
+      parent: allCategories.filter((category)=> category._id.toString() === cat.parentId)
+    });
+  }
+  return categoryList;
+}
+
 // @desc Fetch All Categories
 // @route GET /api/categories
 // @access Public
 const getAllCategories = asyncHandler(async (req, res) => {
-  const categories = await Category.find({});
-  const categoryList = formatCategories(categories);
+  const keyword = req.query.key ? {
+    name: {
+      $regex: req.query.key,
+      $options: 'i'
+    }
+  }:{};
+  const categories = await Category.find({...keyword});
+  // console.log(categories);
+  let categoryList = [];
+  if (req.query.key){
+    const allCategories = await Category.find({});
+    categoryList = searchCategories(categories, allCategories);
+  }else{
+    // formatting categories list into nested categoryList
+    categoryList = formatCategories(categories);
+  }
   if (categoryList) {
     res.json({ categoryList });
   } else {
@@ -50,9 +79,9 @@ const getAllCategories = asyncHandler(async (req, res) => {
 // @route GET /api/categories/:id
 // @access Public
 const getCategoryById = asyncHandler(async (req, res) => {
-  if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-    const category = await Category.findById(req.params.id);
-
+  const id = req.params.id;
+  if (validateObjectId(id)) {
+    const category = await Category.findById(id);
     if (category) {
       res.json(category);
     } else {
@@ -68,20 +97,23 @@ const getCategoryById = asyncHandler(async (req, res) => {
 // @route POST /api/categories/
 // @access Private
 const addCategory = asyncHandler(async (req, res) => {
-  if (req.body.parentId) {
-    let validParent = req.body.parentId.match(/^[0-9a-fA-F]{24}$/);
-    if (validParent) {
-      const parent = await Category.findById(req.body.parentId);
-      if (!parent) {
-        res.status(400);
-        throw new Error('ParentId Not Found');
-      }
-    } else {
-      res.status(400);
-      throw new Error('Invalid ParentId Request');
-    }
-  }
+  const parentId = req.body.parentId;
+  
   if (req.body.name) {
+    // checking Parent ID validity if it exixts in payload
+    if (parentId) {
+      if (validateObjectId(parentId)) {
+        const parent = await Category.findById(parentId);
+        if (!parent) {
+          res.status(400);
+          throw new Error('ParentId Not Found');
+        }
+      } else {
+        res.status(400);
+        throw new Error('Invalid ParentId Request');
+      }
+    }
+    // checking slug uniqueness
     const slug = slugify(req.body.slug ? req.body.slug : req.body.name);
     const category = await Category.findOne({ slug });
     // console.log(category);
@@ -114,17 +146,24 @@ const addCategory = asyncHandler(async (req, res) => {
 // @route DELETE /api/categories/:id
 // @access Private
 const deleteCategories = asyncHandler(async (req, res) => {
-  if (req.params.id) {
-    const categories = await Category.find({});
-    let categoryList = [req.params.id];
-    getNestedCategories(categories, req.params.id, categoryList);
-    console.log(categoryList);
+  const id = req.params.id;
+  if (validateObjectId(id)) {
+    const fetchedcategory = await Category.findById(id);
+    if (fetchedcategory){
+      const categories = await Category.find({});
+      let categoryList = [ifd];
+      getNestedCategories(categories, req.params.id, categoryList);
+      //console.log(categoryList);
 
-    await Category.deleteMany({ _id: { $in: categoryList } });
-    res.json({
-      message: 'Category Deleted Successfully',
-      categoryList,
-    });
+      await Category.deleteMany({ _id: { $in: categoryList } });
+      res.json({
+        message: 'Category Deleted Successfully',
+        categoryList,
+      });
+    }else{
+      res.status(404);
+      throw new Error('Category not Found');
+    }
   } else {
     res.status(400);
     throw new Error('Invalid Request');
@@ -135,13 +174,15 @@ const deleteCategories = asyncHandler(async (req, res) => {
 // @route PUT /api/categories/:id
 // @access Private
 const updateCategory = asyncHandler(async (req, res) => {
-  if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-    if (req.body.parentId) {
-      let validParent = req.body.parentId.match(/^[0-9a-fA-F]{24}$/);
-      if (validParent) {
-        const parent = await Category.findById(req.body.parentId);
+  const id = req.params.id;
+  const parentId = req.body.parentId;
+  if (validateObjectId(id) && req.body.name) {
+    // checking if parent is valid and exists or not
+    if (parentId && parentId !== 'null') {
+      if (validateObjectId(parentId)) {
+        const parent = await Category.findById(parentId);
         if (!parent) {
-          res.status(400);
+          res.status(404);
           throw new Error('ParentId Not Found');
         }
       } else {
@@ -150,8 +191,8 @@ const updateCategory = asyncHandler(async (req, res) => {
       }
     }
 
-    const category = await Category.findById(req.params.id);
-
+    const category = await Category.findById(id);
+    // slug uniqueness checking
     const slug =
       req.body.slug || req.body.name
         ? slugify(req.body.slug || req.body.name)
@@ -163,23 +204,27 @@ const updateCategory = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error(
           'Slug Already Taken. Please Set a Different Category Name or Slug'
-        );
+        ); 
       }
     }
     // console.log(category);
     if (category) {
       category.name = req.body.name || category.name;
       category.slug = slug || category.slug;
-      category.parentId = req.body.parentId || category.parentId;
+      if (parentId ==='null'){
+        category.parentId = null;
+      }else{
+        category.parentId = req.body.parentId || category.parentId;
+      }
 
       const updatedCategory = await category.save();
       // console.log(updatedCategory);
       res.json({
         message: 'Updated Successfully',
-        _id: category._id,
-        name: category.name,
-        slug: category.slug,
-        parentId: category.parentId || null,
+        _id: updatedCategory._id,
+        name: updatedCategory.name,
+        slug: updatedCategory.slug,
+        parentId: updatedCategory.parentId || null,
       });
     } else {
       res.status(400);
