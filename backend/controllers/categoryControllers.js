@@ -18,13 +18,25 @@ const formatCategories = (categories, parentId = null) => {
   return categoryList;
 };
 
+const getNestedDeleteCategories = (categories, parentId)=> {
+  const categoryList = [];
+  let eachlevelCategories = categories.filter(
+    (category) => category.parentId == parentId
+  );
+
+  for (let cat of eachlevelCategories){
+    console.log(cat.slug)
+    getNestedDeleteCategories(categories, cat._id);
+    categoryList.push(cat._id);
+  }
+  return categoryList;
+}
+
 // @desc Fetch All Categories
 // @route GET /api/categories
 // @access Public
 const getAllCategories = asyncHandler(async (req, res) => {
   const categories = await Category.find({});
-  // res.status(401);
-  // throw new Error('Not Authorised');
   const categoryList = formatCategories(categories);
   if (categoryList) {
     res.json({ categoryList });
@@ -53,12 +65,13 @@ const getCategoryById = asyncHandler(async (req, res) => {
 });
 
 // @desc Add Single Category
-// @route GET /api/categories/:id
+// @route POST /api/categories/
 // @access Private
 const addCategory = asyncHandler(async (req, res) => {
   if (req.body.name) {
     const slug = slugify(req.body.slug ? req.body.slug : req.body.name);
-    const category = await Category.find({ slug });
+    const category = await Category.findOne({ slug });
+    // console.log(category);
     if (category) {
       res.status(400);
       throw new Error(
@@ -82,10 +95,23 @@ const addCategory = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Invalid Request');
   }
-
-  res.json({
-    message: 'Found',
-  });
 });
 
-export { getAllCategories, getCategoryById, addCategory };
+
+// @desc Delete Single Category and Cascade Nested Categories
+// @route DELETE /api/categories/:id
+// @access Private
+const deleteCategories = asyncHandler(async (req, res)=> {
+  if(req.params.id){
+    const categories = await Category.find({});
+    const categoryList = getNestedDeleteCategories(categories, req.params.id);
+    console.log(categoryList);
+    res.json(categoryList);
+  }else {
+    res.status(400);
+    throw new Error('Invalid Request');
+  }
+});
+
+
+export { getAllCategories, getCategoryById, addCategory, deleteCategories };
