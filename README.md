@@ -1,5 +1,5 @@
 # category-app-assignment
-Developing CRUD Rest Api for categories 
+Developing CRUD Rest Api for categories in JavaScript. An API configurarion JSON file is shared so that you can test backend endpoints. Two models are created as Users and Categories with CRUD operations and searching. JWT implemented for private routes with protect middleware. Redis is not implemented here though there are some config files. 
 
 # How To Run
 1. Please clone this repository or download from Github
