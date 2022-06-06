@@ -1,7 +1,7 @@
 {
-  "name": "proshop",
+  "name": "category-app-management",
   "version": "1.0.0",
-  "description": "MERN Shopping Cart App",
+  "description": "Category CRUD Backend Endpoint",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kucse160235/E-Commerce-React.git"
+    "url": "git+https://github.com/kucse160235/category-app-assignment.git"
   },
   "keywords": [
     "afnan123"
@@ -22,9 +22,9 @@
   "author": "Mahfujur Rahman Afnan",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/kucse160235/E-Commerce-React/issues"
+    "url": "https://github.com/kucse160235/category-app-assignment/issues"
   },
-  "homepage": "https://github.com/kucse160235/E-Commerce-React#readme",
+  "homepage": "https://github.com/kucse160235/category-app-assignment#readme",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "colors": "^1.4.0",
